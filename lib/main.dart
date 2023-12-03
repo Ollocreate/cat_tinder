@@ -1,4 +1,6 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
 
 // TODO: Проверка на наличие интернета, splash скрин (во время загрузки проверка авторизации);
 // TODO: По нажатию на фотку кота с помощью hero animation должна открывать фотка на весь экран (в виде нового экрана)
@@ -13,7 +15,8 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      home: MyHomePage(),
+      home: MyHomePage(
+      ),
     );
   }
 }
@@ -27,22 +30,42 @@ class _MyHomePageState extends State<MyHomePage> {
   int _selectedIndex = 0;
   
   final List<Widget> _pages = <Widget>[
-    GeneratorPage(),
+    CatPage(),
     FavoritePage(),
   ];
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Colors.pink.shade50,
+
       appBar: AppBar(
+        backgroundColor: Colors.pink.shade50,
         title: Text('Cat tinder'),
         actions: [
           Padding(
             padding: const EdgeInsets.all(10.0),
             child: ElevatedButton(
 // TODO: Сделать выход из системы
-                onPressed: () {},
-                child: Text('Quit')),
+              onPressed: () {},
+              child: Text('Quit'),
+              style: ButtonStyle(
+                shape: MaterialStateProperty.all<OutlinedBorder>(
+                  RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10.0),
+                  ),
+                ),
+                backgroundColor: MaterialStateProperty.all<Color>(Colors.deepOrange.shade400),
+                foregroundColor: MaterialStateProperty.all<Color>(Colors.white),
+                overlayColor: MaterialStateProperty.all<Color>(Colors.deepOrange.shade200),
+                textStyle: MaterialStateProperty.all<TextStyle>(
+                  TextStyle(
+                    fontSize: 16.0,
+                    color: Colors.white,
+                  ),
+                ),
+              ),
+            ),
           )
         ],
       ),
@@ -63,15 +86,6 @@ class _MyHomePageState extends State<MyHomePage> {
         },
       ),
       bottomNavigationBar: BottomNavigationBar(
-        backgroundColor: Colors.indigo,
-        iconSize: 30,
-        mouseCursor: SystemMouseCursors.click,
-        selectedItemColor: Colors.white,
-        selectedLabelStyle: TextStyle(
-          fontWeight: FontWeight.bold
-        ),
-        showUnselectedLabels: false,
-
         items: const <BottomNavigationBarItem>[
           BottomNavigationBarItem(
               icon: Icon(Icons.home),
@@ -82,6 +96,15 @@ class _MyHomePageState extends State<MyHomePage> {
           ],
         currentIndex: _selectedIndex,
         onTap: _onItemTapped,
+
+        backgroundColor: Colors.deepOrange.shade400,
+        iconSize: 30,
+        mouseCursor: SystemMouseCursors.click,
+        selectedItemColor: Colors.white,
+        selectedLabelStyle: TextStyle(
+            fontWeight: FontWeight.bold
+        ),
+        showUnselectedLabels: false,
       ),
     );
   }
@@ -90,49 +113,133 @@ class _MyHomePageState extends State<MyHomePage> {
   void _onItemTapped(int index) {
     setState(() {
       _selectedIndex = index;
-    });
-  }
-}
-
-class GeneratorPage extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    // IconData icon;
-    // if (appState.favorites.contains(pair)) {
-    //   icon = Icons.favorite;
-    // } else {
-    //   icon = Icons.favorite_border;
-    // }
-// TODO: Загрузка котов через API
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          SizedBox(height: 10),
-          Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              ElevatedButton.icon(
-                  onPressed: () {
-                    // appState.toggleFavorite();
-                  },
-                  icon: Icon(Icons.favorite),
-                  label: Text('Like'),
-              ),
-              SizedBox(width: 10),
-              ElevatedButton(
-                  onPressed: () {
-                    // appState.getNext();
-                  },
-                  child: Text('Next'),
-              ),
-            ],
-          ),
-        ],
-      ),
+    }
     );
   }
 }
+
+class CatPage extends StatefulWidget {
+  @override
+  _CatPageState createState() => _CatPageState();
+}
+
+class _CatPageState extends State<CatPage> {
+  String imageUrl = '';
+
+  // IconData icon;
+  // if (appState.favorites.contains(pair)) {
+  //   icon = Icons.favorite;
+  // } else {
+  //   icon = Icons.favorite_border;
+  // }
+
+  @override
+  void initState() {
+    super.initState();
+    _loadCatImage();
+  }
+
+  Future<void> _loadCatImage() async {
+    final response = await http.get(Uri.parse('https://api.thecatapi.com/v1/images/search'));
+
+    if (response.statusCode == 200) {
+      final data = json.decode(response.body);
+      setState(() {
+        imageUrl = data[0]['url'];
+      });
+    } else {
+      print('Failed to load cat image');
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+      return Center(
+        child: SizedBox(
+          height: 500,
+          width: 350,
+          child: Column(
+            children: [
+              SizedBox(
+                height: 350,
+                child: imageUrl.isNotEmpty ? Image.network(
+                    imageUrl,
+                    fit: BoxFit.contain,
+                ) : CircularProgressIndicator(),
+              ),
+              Padding(
+                padding: EdgeInsets.symmetric(vertical: 15.0),
+                child: Row(
+                  mainAxisSize: MainAxisSize.max,
+                  mainAxisAlignment: MainAxisAlignment.spaceAround,
+                  children: [
+                    ElevatedButton.icon(
+                      onPressed: () {},
+                      icon: Padding(
+                        padding: EdgeInsets.symmetric(vertical: 15.0),
+                        child: Icon(
+                            Icons.favorite,
+                            size: 35),
+                      ),
+                      label: Text('Like'),
+
+                      style: ButtonStyle(
+                        shape: MaterialStateProperty.all<OutlinedBorder>(
+                          RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10.0),
+                          ),
+                        ),
+                        backgroundColor: MaterialStateProperty.all<Color>(Colors.green),
+                        foregroundColor: MaterialStateProperty.all<Color>(Colors.white),
+                        overlayColor: MaterialStateProperty.all<Color>(Colors.green.shade300),
+                        textStyle: MaterialStateProperty.all<TextStyle>(
+                          TextStyle(
+                            fontSize: 20.0,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ),
+                    ),
+                    ElevatedButton.icon(
+                      onPressed: () {
+                        _loadCatImage();
+                      },
+                      icon: Padding(
+                        padding: EdgeInsets.symmetric(vertical: 15.0),
+                        child: Icon(
+                            Icons.not_interested,
+                            size: 35),
+                      ),
+                      label: Text('Next'),
+
+                      style: ButtonStyle(
+                        shape: MaterialStateProperty.all<OutlinedBorder>(
+                          RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10.0),
+                          ),
+                        ),
+                        backgroundColor: MaterialStateProperty.all<Color>(Colors.red),
+                        foregroundColor: MaterialStateProperty.all<Color>(Colors.white),
+                        overlayColor: MaterialStateProperty.all<Color>(Colors.red.shade300),
+                        textStyle: MaterialStateProperty.all<TextStyle>(
+                          TextStyle(
+                            fontSize: 20.0,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        )
+      );
+    }
+  }
 
 class FavoritePage extends StatelessWidget {
   @override
