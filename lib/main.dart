@@ -112,7 +112,17 @@ class MyHomePage extends StatelessWidget {
   }
 }
 
-class CatPage extends StatelessWidget {
+class CatPage extends StatefulWidget {
+  @override
+  State<CatPage> createState() => _CatPageState();
+}
+
+class _CatPageState extends State<CatPage> {
+  void initState() {
+    super.initState();
+    context.read<CatCubit>().loadCatImage();
+  }
+
   @override
   Widget build(BuildContext context) {
     return Center(
@@ -127,17 +137,17 @@ class CatPage extends StatelessWidget {
                 builder: (context, imageUrl) {
                   return imageUrl.isNotEmpty
                       ? Image.network(
-                    imageUrl,
-                    fit: BoxFit.contain,
+                      imageUrl,
+                      fit: BoxFit.contain,
                   ) : Align(
-                      alignment: Alignment.center,
-                      child: Container(
-                        width: 50,
-                        height: 50,
-                        child: CircularProgressIndicator(),
-                  ),
+                    alignment: Alignment.center,
+                    child: Container(
+                      width: 50,
+                      height: 50,
+                      child: CircularProgressIndicator(),
+                    ),
                   );
-                 },
+                },
               ),
             ),
             Padding(
@@ -160,20 +170,20 @@ class CatPage extends StatelessWidget {
                       }
                     },
                     icon: Padding(
-                      padding: EdgeInsets.symmetric(vertical: 15.0),
-                      child: BlocBuilder<FavoriteCatsCubit, List<String>>(
-                        builder: (context, favoriteCats) {
-                          String catId = context.read<CatCubit>().state;
+                        padding: EdgeInsets.symmetric(vertical: 15.0),
+                        child: BlocBuilder<FavoriteCatsCubit, List<String>>(
+                          builder: (context, favoriteCats) {
+                            String catId = context.read<CatCubit>().state;
 
-                          bool isFavorite = favoriteCats.contains(catId);
+                            bool isFavorite = favoriteCats.contains(catId);
 
-                          return Icon(
-                            isFavorite ? Icons.favorite : Icons.favorite_border,
-                            size: 35,
-                            color: isFavorite ? Colors.white : null,
-                          );
-                        },
-                      )
+                            return Icon(
+                              isFavorite ? Icons.favorite : Icons.favorite_border,
+                              size: 35,
+                              color: isFavorite ? Colors.white : null,
+                            );
+                          },
+                        )
                     ),
                     label: Text('Like'),
                     style: ButtonStyle(
@@ -240,58 +250,58 @@ class FavoritePage extends StatelessWidget {
     return BlocBuilder<FavoriteCatsCubit, List<String>>(
       builder: (context, favoriteCats) {
         return Scaffold(
-          body: Center(
-            child: BlocBuilder<FavoriteCatsCubit, List<String>>(
-            builder: (context, favoriteCats) {
-              return favoriteCats.isEmpty
-                  ? Text('Нет понравившихся котов.')
-                  : GridView.builder(
-                    gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 2, // Количество столбцов в сетке
-                    crossAxisSpacing: 8.0, // Расстояние между столбцами
-                    mainAxisSpacing: 8.0, // Расстояние между строками
-                ),
-                  itemCount: favoriteCats.length,
-                  itemBuilder: (context, index) {
-                  return GridTile(
-                    child: _buildCatImage(context, favoriteCats[index]),
-                    footer: SizedBox(
-                      width: 80,
-                      child: Padding(
-                        padding: const EdgeInsets.all(10.0),
-                        child: ElevatedButton.icon(
-                          onPressed: () async {
-                            String catId = favoriteCats[index];
-                            context.read<FavoriteCatsCubit>().removeFromFavorites(catId);
-                          },
-                          icon: Icon(Icons.not_interested),
-                          label: Text('Unlike'),
-                          style: ButtonStyle(
-                            shape: MaterialStateProperty.all<OutlinedBorder>(
-                              RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(10.0),
-                              ),
-                            ),
-                            backgroundColor: MaterialStateProperty.all<Color>(Colors.red.shade400),
-                            foregroundColor: MaterialStateProperty.all<Color>(Colors.white),
-                            overlayColor: MaterialStateProperty.all<Color>(Colors.red.shade300),
-                            textStyle: MaterialStateProperty.all<TextStyle>(
-                              TextStyle(
-                                fontSize: 16.0,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.white,
+            body: Center(
+              child: BlocBuilder<FavoriteCatsCubit, List<String>>(
+                  builder: (context, favoriteCats) {
+                    return favoriteCats.isEmpty
+                        ? Text('Нет понравившихся котов.')
+                        : GridView.builder(
+                      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: 2, // Количество столбцов в сетке
+                        crossAxisSpacing: 8.0, // Расстояние между столбцами
+                        mainAxisSpacing: 8.0, // Расстояние между строками
+                      ),
+                      itemCount: favoriteCats.length,
+                      itemBuilder: (context, index) {
+                        return GridTile(
+                          child: _buildCatImage(context, favoriteCats[index]),
+                          footer: SizedBox(
+                            width: 80,
+                            child: Padding(
+                              padding: const EdgeInsets.all(10.0),
+                              child: ElevatedButton.icon(
+                                onPressed: () async {
+                                  String catId = favoriteCats[index];
+                                  context.read<FavoriteCatsCubit>().removeFromFavorites(catId);
+                                },
+                                icon: Icon(Icons.not_interested),
+                                label: Text('Unlike'),
+                                style: ButtonStyle(
+                                  shape: MaterialStateProperty.all<OutlinedBorder>(
+                                    RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(10.0),
+                                    ),
+                                  ),
+                                  backgroundColor: MaterialStateProperty.all<Color>(Colors.red.shade400),
+                                  foregroundColor: MaterialStateProperty.all<Color>(Colors.white),
+                                  overlayColor: MaterialStateProperty.all<Color>(Colors.red.shade300),
+                                  textStyle: MaterialStateProperty.all<TextStyle>(
+                                    TextStyle(
+                                      fontSize: 16.0,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                                ),
                               ),
                             ),
                           ),
-                        ),
-                      ),
-                    ),
-                  );
-                },
-              );
-            }
-          ),
-          )
+                        );
+                      },
+                    );
+                  }
+              ),
+            )
         );
 
       },
@@ -307,4 +317,3 @@ class FavoritePage extends StatelessWidget {
     );
   }
 }
-
