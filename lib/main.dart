@@ -1,28 +1,47 @@
-import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:connectivity/connectivity.dart';
+import 'authentication_cubit.dart';
 import 'cat_cubit.dart';
 import 'favorite_cats_cubit.dart';
 import 'my_home_page_cubit.dart';
 
 
 void main() {
+  WidgetsFlutterBinding.ensureInitialized();
   runApp(MyApp());
 }
 
-
 class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+  final AuthenticationCubit authenticationCubit = AuthenticationCubit();
+  final CatCubit catCubit = CatCubit();
+  final FavoriteCatsCubit favoriteCatsCubit = FavoriteCatsCubit();
+  final MyHomePageCubit myHomePageCubit = MyHomePageCubit();
+
+  final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      home: SplashScreen(
-        onSplashScreenComplete: () {
-          runApp(MyAppContent());
-        },
+    return MultiBlocProvider(
+      providers: [
+        BlocProvider.value(value: authenticationCubit),
+        BlocProvider.value(value: catCubit),
+        BlocProvider.value(value: favoriteCatsCubit),
+        BlocProvider.value(value: myHomePageCubit),
+      ],
+      child: MaterialApp(
+        navigatorKey: navigatorKey,
+        home: SplashScreen(
+          onSplashScreenComplete: () async {
+            await authenticationCubit.checkAuthenticationStatus();
+            navigatorKey.currentState!.pushReplacement(
+              MaterialPageRoute(
+                builder: (context) => MyAppContent(),
+              ),
+            );
+          },
+        ),
       ),
     );
   }
@@ -31,57 +50,64 @@ class MyApp extends StatelessWidget {
 class MyAppContent extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      home: MultiBlocProvider(
-        providers: [
-          BlocProvider(create: (_) => CatCubit()),
-          BlocProvider(create: (_) => FavoriteCatsCubit()),
-          BlocProvider(create: (_) => MyHomePageCubit()),
-        ],
-        child: MyHomePage(),
-      ),
-    );
+    return MyHomePage();
   }
 }
 
-class SplashScreen extends StatelessWidget {
+class SplashScreen extends StatefulWidget {
   final VoidCallback onSplashScreenComplete;
 
   SplashScreen({Key? key, required this.onSplashScreenComplete}) : super(key: key);
 
-  // Внешний метод для проверки соединения с интернетом
+  @override
+  _SplashScreenState createState() => _SplashScreenState();
+}
+
+class _SplashScreenState extends State<SplashScreen> {
+  @override
+  void initState() {
+    super.initState();
+    _checkAuthenticationStatus();
+  }
+
   Future<bool> _checkInternetConnection() async {
     var connectivityResult = await Connectivity().checkConnectivity();
     return connectivityResult != ConnectivityResult.none;
   }
 
+  Future<void> _checkAuthenticationStatus() async {
+    bool isConnected = await _checkInternetConnection();
+    await Future.delayed(Duration(seconds: 3));
+
+    if (isConnected) {
+      final authStatus = context.read<AuthenticationCubit>().state;
+      if (authStatus == AuthenticationStatus.authenticated) {
+        Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (context) => MyHomePage()));
+      } else {
+        Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (context) => LoginScreen()));
+      }
+    } else {
+      showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: Text('Error'),
+          content: Text('No internet connection'),
+          actions: [
+            ElevatedButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+                exit(0);
+              },
+              child: Text('Leave'),
+            ),
+          ],
+        ),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    Future.delayed(Duration(seconds: 3), () {
-      _checkInternetConnection().then((isConnected) {
-        if (isConnected) {
-          onSplashScreenComplete();
-        } else {
-          showDialog(
-            context: context,
-            builder: (context) => AlertDialog(
-              title: Text('Ошибка'),
-              content: Text('Отсутствует подключение к интернету.'),
-              actions: [
-                ElevatedButton(
-                  onPressed: () {
-                    Navigator.of(context).pop();
-                    exit(0);
-                  },
-                  child: Text('Выйти'),
-                ),
-              ],
-            ),
-          );
-        }
-      });
-    });
-
     return Scaffold(
       backgroundColor: Colors.pink.shade50,
       body: Center(
@@ -99,6 +125,11 @@ class SplashScreen extends StatelessWidget {
 class MyHomePage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
+    final AuthenticationStatus authStatus = context.watch<AuthenticationCubit>().state;
+    if (authStatus == AuthenticationStatus.unauthenticated) {
+      return LoginScreen();
+    }
+
     return BlocBuilder<CatCubit, String>(
       builder: (context, catState) {
         return Scaffold(
@@ -110,7 +141,9 @@ class MyHomePage extends StatelessWidget {
               Padding(
                 padding: const EdgeInsets.all(10.0),
                 child: ElevatedButton(
-                  onPressed: () {},
+                  onPressed: () {
+                    context.read<AuthenticationCubit>().logoutUser();
+                  },
                   child: Text('Quit'),
                   style: ButtonStyle(
                     shape: MaterialStateProperty.all<OutlinedBorder>(
@@ -231,10 +264,8 @@ class _CatPageState extends State<CatPage> {
                       var favoriteCatsCubit = context.read<FavoriteCatsCubit>();
 
                       if (favoriteCatsCubit.state.contains(catId)) {
-                        // Если есть, удаляем из избранного
                         favoriteCatsCubit.removeFromFavorites(catId);
                       } else {
-                        // Если нет, добавляем в избранное
                         favoriteCatsCubit.addToFavorites(catId);
                       }
                     },
@@ -323,12 +354,12 @@ class FavoritePage extends StatelessWidget {
               child: BlocBuilder<FavoriteCatsCubit, List<String>>(
                   builder: (context, favoriteCats) {
                     return favoriteCats.isEmpty
-                        ? Text('Нет понравившихся котов.')
+                        ? Text('No favorite cats')
                         : GridView.builder(
                       gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                        crossAxisCount: 2, // Количество столбцов в сетке
-                        crossAxisSpacing: 8.0, // Расстояние между столбцами
-                        mainAxisSpacing: 8.0, // Расстояние между строками
+                        crossAxisCount: 2,
+                        crossAxisSpacing: 8.0,
+                        mainAxisSpacing: 8.0,
                       ),
                       itemCount: favoriteCats.length,
                       itemBuilder: (context, index) {
@@ -369,13 +400,12 @@ class FavoritePage extends StatelessWidget {
                       },
                     );
                   }
-              ),
-            )
-        );
-
-      },
-    );
-  }
+                ),
+              )
+          );
+        },
+      );
+    }
 
   Widget _buildCatImage(BuildContext context, String imageUrl) {
     return Image.network(
@@ -383,6 +413,99 @@ class FavoritePage extends StatelessWidget {
       width: 100,
       height: 100,
       fit: BoxFit.cover,
+    );
+  }
+}
+
+class LoginScreen extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    final TextEditingController nameController = TextEditingController();
+    final TextEditingController passwordController = TextEditingController();
+
+    return Scaffold(
+      backgroundColor: Colors.pink.shade50,
+      appBar: AppBar(
+        backgroundColor: Colors.pink.shade50,
+        title: Text('Login'),
+      ),
+      body: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(
+                'Welcome!',
+                style: const TextStyle(fontSize: 20.0)),
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 15.0),
+              child: TextField(
+                controller: nameController,
+                decoration: InputDecoration(
+                    filled: true,
+                    fillColor: Colors.white,
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10.0),
+                      borderSide: BorderSide(color: Colors.deepOrange.shade400, width: 2.0),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10.0),
+                      borderSide: BorderSide(color: Colors.deepOrange.shade400, width: 2.0),
+                    ),
+                    labelText: 'Username'
+                ),
+              ),
+            ),
+            TextField(
+              controller: passwordController,
+              obscureText: true,
+              decoration: InputDecoration(
+                  filled: true,
+                  fillColor: Colors.white,
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10.0),
+                    borderSide: BorderSide(color: Colors.deepOrange.shade400, width: 2.0),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10.0),
+                    borderSide: BorderSide(color: Colors.deepOrange.shade400, width: 2.0),
+                  ),
+                  labelText: 'Password'),
+            ),
+            SizedBox(height: 16),
+            ElevatedButton(
+              onPressed: () {
+                final String name = nameController.text;
+                final String password = passwordController.text;
+                final User user = User(name: name, password: password);
+
+                context.read<AuthenticationCubit>().loginUser(user, context);
+                Navigator.of(context).pushReplacement(MaterialPageRoute(
+                  builder: (context) => MyHomePage(),
+                ));
+              },
+              child: Text('Login'),
+
+              style: ButtonStyle(
+                shape: MaterialStateProperty.all<OutlinedBorder>(
+                  RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10.0),
+                  ),
+                ),
+                backgroundColor: MaterialStateProperty.all<Color>(Colors.deepOrange.shade400),
+                foregroundColor: MaterialStateProperty.all<Color>(Colors.white),
+                overlayColor: MaterialStateProperty.all<Color>(Colors.deepOrange.shade200),
+                textStyle: MaterialStateProperty.all<TextStyle>(
+                  TextStyle(
+                    fontSize: 16.0,
+                    color: Colors.white,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
