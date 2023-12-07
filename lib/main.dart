@@ -1,17 +1,34 @@
 import 'dart:convert';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:connectivity/connectivity.dart';
 import 'cat_cubit.dart';
 import 'favorite_cats_cubit.dart';
 import 'my_home_page_cubit.dart';
+
 
 void main() {
   runApp(MyApp());
 }
 
+
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
 
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      home: SplashScreen(
+        onSplashScreenComplete: () {
+          runApp(MyAppContent());
+        },
+      ),
+    );
+  }
+}
+
+class MyAppContent extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
@@ -22,6 +39,58 @@ class MyApp extends StatelessWidget {
           BlocProvider(create: (_) => MyHomePageCubit()),
         ],
         child: MyHomePage(),
+      ),
+    );
+  }
+}
+
+class SplashScreen extends StatelessWidget {
+  final VoidCallback onSplashScreenComplete;
+
+  SplashScreen({Key? key, required this.onSplashScreenComplete}) : super(key: key);
+
+  // Внешний метод для проверки соединения с интернетом
+  Future<bool> _checkInternetConnection() async {
+    var connectivityResult = await Connectivity().checkConnectivity();
+    return connectivityResult != ConnectivityResult.none;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    Future.delayed(Duration(seconds: 3), () {
+      _checkInternetConnection().then((isConnected) {
+        if (isConnected) {
+          onSplashScreenComplete();
+        } else {
+          showDialog(
+            context: context,
+            builder: (context) => AlertDialog(
+              title: Text('Ошибка'),
+              content: Text('Отсутствует подключение к интернету.'),
+              actions: [
+                ElevatedButton(
+                  onPressed: () {
+                    Navigator.of(context).pop();
+                    exit(0);
+                  },
+                  child: Text('Выйти'),
+                ),
+              ],
+            ),
+          );
+        }
+      });
+    });
+
+    return Scaffold(
+      backgroundColor: Colors.pink.shade50,
+      body: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Image.asset('assets/splashscreen_logo.png', width: 150, height: 150),
+          ],
+        ),
       ),
     );
   }
